@@ -1,0 +1,4 @@
+__pycache__/
+unsloth_compiled_cache/
+wandb/
+train_data/

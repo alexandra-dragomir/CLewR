@@ -167,37 +167,36 @@ def main():
     print("Model and tokenizer loaded successfully.")
     
     training_args = CPOConfig(
-        output_dir=args.output_dir+args.output_name, 
-        loss_type=args.loss,  
+        output_dir=args.output_dir+args.output_name,
+        loss_type=args.loss,
         bf16=True,
         num_train_epochs=args.num_train_epochs,
         save_strategy="steps",
         save_steps=args.save_steps,
         eval_strategy="steps",
         eval_steps=args.eval_steps,
-        beta = args.beta,
-        eta = args.eta,
-        eta_comet = args.eta_comet,
-        eta_bleu = args.eta_bleu,
-        z_alpha = args.z_alpha,
-        z_beta = args.z_beta,
-        
+        beta=args.beta,
         per_device_train_batch_size=args.per_device_train_batch_size,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         cpo_alpha=args.cpo_alpha,
         learning_rate=args.lr,
     )
-    
+
     trainer = CustomCPOTrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         processing_class=tokenizer,
-        num_train_epochs=args.num_train_epochs,  
-        gradient_accumulation_steps=args.gradient_accumulation_steps,  
+        num_train_epochs=args.num_train_epochs,
+        gradient_accumulation_steps=args.gradient_accumulation_steps,
         per_device_train_batch_size=args.per_device_train_batch_size,
         shuffle=False,
+        eta=args.eta,
+        eta_comet=args.eta_comet,
+        eta_bleu=args.eta_bleu,
+        z_alpha=args.z_alpha,
+        z_beta=args.z_beta,
     )
     
     

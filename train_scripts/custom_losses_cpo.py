@@ -15,12 +15,12 @@ class CustomCPOTrainer(CPOTrainer):
     Custom CPO Trainer that extends the base CPOTrainer with additional loss functions.
     """
     def __init__(self, *args, **kwargs):
+        self.eta = kwargs.pop("eta", 1.5)
+        self.eta_bleu = kwargs.pop("eta_bleu", 1.5)
+        self.eta_comet = kwargs.pop("eta_comet", 6)
+        self.z_alpha = kwargs.pop("z_alpha", 0.5)
+        self.z_beta = kwargs.pop("z_beta", 0.33)
         super().__init__(*args, **kwargs)
-        self.eta = kwargs.get("eta", 1.5)
-        self.eta_bleu = kwargs.get("eta_bleu", 1.5)
-        self.eta_comet = kwargs.get("eta_comet", 6)
-        self.z_alpha = kwargs.get("z_alpha", 0.5)
-        self.z_beta = kwargs.get("z_beta", 0.33)
     
     def get_batch_loss_metrics(
         self,
@@ -31,28 +31,37 @@ class CustomCPOTrainer(CPOTrainer):
         metrics = {}
 
         forward_output = self.concatenated_forward(model, batch)
+        # Unsloth CPOTrainer.concatenated_forward returns 5 values (or 6 with aux_loss), not 7
         (
             policy_chosen_logps,
             policy_rejected_logps,
             policy_chosen_logits,
             policy_rejected_logits,
             policy_nll_loss,
-            chosen_len, 
-            rejected_len
-        ) = forward_output[:7]
+        ) = forward_output[:5]
         if self.aux_loss_enabled:
-            aux_loss = forward_output[7]
+            aux_loss = forward_output[5]
+        # Lengths are not returned by Unsloth; compute from batch labels for normalization
+        label_pad = getattr(self, "label_pad_token_id", -100)
+        chosen_len = (batch["chosen_labels"] != label_pad).sum(dim=1).float().clamp(min=1.0).to(self.accelerator.device)
+        rejected_len = (batch["rejected_labels"] != label_pad).sum(dim=1).float().clamp(min=1.0).to(self.accelerator.device)
 
 
-        losses, chosen_rewards, rejected_rewards, z, tau = self.cpo_loss(
+        cpo_result = self.cpo_loss(
             policy_chosen_logps,
             policy_rejected_logps,
             policy_chosen_logits,
             policy_rejected_logits,
             chosen_len,
             rejected_len,
-            batch  
+            batch,
         )
+        # Custom losses return (losses, chosen_rewards, rejected_rewards, z, tau); base sigmoid returns 3
+        if len(cpo_result) == 3:
+            losses, chosen_rewards, rejected_rewards = cpo_result
+            z, tau = None, None
+        else:
+            losses, chosen_rewards, rejected_rewards, z, tau = cpo_result
 
         loss = losses.mean() + self.cpo_alpha * policy_nll_loss
         reward_accuracies = (chosen_rewards > rejected_rewards).float()
@@ -212,15 +221,10 @@ class CustomCPOTrainer(CPOTrainer):
                 - F.logsigmoid(-self.beta * logits) * self.label_smoothing 
             )
         else:
-            # Fall back to the original CPO loss implementation
+            # Fall back to base (Unsloth) CPO loss: only accepts (policy_chosen_logps, policy_rejected_logps)
             return super().cpo_loss(
                 policy_chosen_logps=policy_chosen_logps,
                 policy_rejected_logps=policy_rejected_logps,
-                policy_chosen_logits=policy_chosen_logits,
-                policy_rejected_logits=policy_rejected_logits,
-                chosen_len=chosen_len,
-                rejected_len=rejected_len,
-                
             )
         
         chosen_rewards = self.beta * (policy_chosen_logps.to(self.accelerator.device)).detach()
