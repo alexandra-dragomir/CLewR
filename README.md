@@ -1,4 +1,12 @@
-# CLewR Training Scripts
+# CLewR: Curriculum Learning with Restarts for Machine Translation Preference Learning - ACL 2026 (official repo)
+
+## Abstract
+
+Large language models (LLMs) have demonstrated competitive performance in zero-shot multilingual machine translation (MT). Some follow-up works further improved MT performance via preference optimization, but they leave a key aspect largely underexplored: the order in which data samples are given during training. We address this topic by integrating curriculum learning into various state-of-the-art preference optimization algorithms to boost MT performance. We introduce **CLewR** (**C**urriculum **Le**arning **w**ith **R**estarts), a novel strategy that reiterates easy-to-hard curriculum multiple times during training to effectively mitigate the catastrophic forgetting of easy examples. We demonstrate consistent gains across several model families (Gemma2, Qwen2.5, Llama3.1) and preference optimization techniques. We publicly release our code at [https://github.com/alexandra-dragomir/CLewR](https://github.com/alexandra-dragomir/CLewR).
+
+Released under the [MIT License](LICENSE).
+
+---
 
 ## Quick Start
 
